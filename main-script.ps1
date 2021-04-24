@@ -1,9 +1,9 @@
 ﻿# Common Parameters
 
-$prefix="az"
+$prefix="azure"
 $IPRange="172.0.0.0/25"
-$location="westus2"
-$supportpath="C:\Temp"
+$location="centralus"
+$supportpath="./"
 $eventhubretention = 2
 
 # Splunk Parameters for Logic App configuration
@@ -128,7 +128,7 @@ Set-AzNetworkInterface -NetworkInterface $splunknic
 
 
 # Splunk Script Deployment
-Set-Location -Path $supportpath
+#Set-Location -Path $supportpath
 
 Invoke-AzVMRunCommand -ResourceGroupName $rgname -Name $vmName -CommandId 'RunShellScript' -ScriptPath .\SplunkDeployScript.sh -AsJob
 
