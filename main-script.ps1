@@ -1,8 +1,8 @@
 ﻿# Common Parameters
 
-$prefix="azure"
+$prefix="az"
 $IPRange="172.0.0.0/25"
-$location="centralus"
+$location="eastus2"
 $supportpath="./"
 $eventhubretention = 2
 
@@ -143,7 +143,7 @@ $splunknsg | Set-AzNetworkSecurityGroup
 $jumpnsg | Set-AzNetworkSecurityGroup
 
 # Event Hub Namespace
-
+$randomsuffix = Get-Random
 $namespacename = $prefix+"ns"+$randomsuffix
 $namespace = New-AzEventHubNamespace -ResourceGroupName $splunkrg.ResourceGroupName -NamespaceName $namespacename -Location $location -WarningAction Ignore
 
@@ -171,7 +171,7 @@ $splunkuri="http://"+$splunkserverip+":"+"$splunkport"+"/services/collector/raw"
 $apiconnectionexternalid="/subscriptions/$subsid/resourceGroups/$splunkrgname/providers/Microsoft.Web/connections/eventhubs"
 $apiconnectioninternalid="/subscriptions/$subsid/providers/Microsoft.Web/locations/$location/managedApis/eventhubs"
 
-$definition = Get-Content .\LogicApp.json -raw | ConvertFrom-Json
+$definition = Get-Content .\SupportedFiles\LogicApp.json -raw | ConvertFrom-Json
 
 $definition.parameters.workflows_az1_logicapp_name.defaultValue = $logicappname
 $definition.parameters.connections_eventhubs_externalid.defaultValue = $apiconnectionexternalid
@@ -181,23 +181,23 @@ $definition.resources[0].properties.definition.actions.HTTP.inputs.authenticatio
 $definition.resources[0].properties.definition.actions.HTTP.inputs.authentication.password=$splunkpass
 $definition.resources[0].properties.definition.actions.HTTP.inputs.headers.'X-Splunk-Request-Channel'=$splunkchannel
 $definition.resources[0].properties.parameters.'$connections'.value.eventhubs.id = $apiconnectioninternalid
-$defition= $definition | ConvertTo-Json -depth 32 | Set-Content .\LogicApp_Updated.json -Force
+$defition= $definition | ConvertTo-Json -depth 32 | Set-Content .\SupportedFiles\LogicApp_Updated.json -Force
 
 # Api Connection
 
 $nsendpoint=(Get-AzEventHubKey -ResourceGroupName $splunkrg.ResourceGroupName -NamespaceName $namespace.Name -AuthorizationRuleName $namespacerule.Name).PrimaryConnectionString
 
-$eventhubconnection = Get-Content .\ApiConnection.json -raw | ConvertFrom-Json
+$eventhubconnection = Get-Content .\SupportedFiles\ApiConnection.json -raw | ConvertFrom-Json
 
 $eventhubconnection.resources[0].properties.api.id = $eventhubconnection.resources[0].properties.api.id.Replace("<subsid>",$subsid)
 $eventhubconnection.resources[0].properties.api.id = $eventhubconnection.resources[0].properties.api.id.Replace("<location>",$location)
 $eventhubconnection.resources[0].location = $location
 $eventhubconnection.resources[0].properties.parameterValues.connectionString = $nsendpoint
-$eventhubconnection | ConvertTo-Json -depth 32 | Set-Content .\ApiConnection_Updated.json -Force
+$eventhubconnection | ConvertTo-Json -depth 32 | Set-Content .\SupportedFiles\ApiConnection_Updated.json -Force
 
 
-New-AzResourceGroupDeployment -Name "apiconnection" -ResourceGroupName $splunkrg.ResourceGroupName -TemplateFile .\ApiConnection_Updated.json -Force
+New-AzResourceGroupDeployment -Name "apiconnection" -ResourceGroupName $splunkrg.ResourceGroupName -TemplateFile .\SupportedFiles\ApiConnection_Updated.json -Force
 
-New-AzResourceGroupDeployment -Name "logicapp" -ResourceGroupName $splunkrg.ResourceGroupName -TemplateFile .\LogicApp_Updated.json -Force
+New-AzResourceGroupDeployment -Name "logicapp" -ResourceGroupName $splunkrg.ResourceGroupName -TemplateFile .\SupportedFiles\LogicApp_Updated.json -Force
 
 #------------------------------------------End----------------------------------------------------#
