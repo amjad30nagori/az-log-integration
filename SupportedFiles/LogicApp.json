@@ -1,0 +1,203 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "workflows_az1_logicapp_name": {
+            "defaultValue": "<logicappname>",
+            "type": "String"
+        },
+        "connections_eventhubs_externalid": {
+            "defaultValue": "<apiconnectionexternalid>",
+            "type": "String"
+        }
+    },
+    "variables": {},
+    "resources": [
+        {
+            "type": "Microsoft.Logic/workflows",
+            "apiVersion": "2017-07-01",
+            "name": "[parameters('workflows_az1_logicapp_name')]",
+            "location": "<location>",
+            "properties": {
+                "state": "Enabled",
+                "definition": {
+                    "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+                    "contentVersion": "1.0.0.0",
+                    "parameters": {
+                        "$connections": {
+                            "defaultValue": {},
+                            "type": "Object"
+                        }
+                    },
+                    "triggers": {
+                        "When_events_are_available_in_Event_Hub": {
+                            "recurrence": {
+                                "frequency": "Minute",
+                                "interval": 1
+                            },
+                            "splitOn": "@triggerBody()",
+                            "type": "ApiConnection",
+                            "inputs": {
+                                "host": {
+                                    "connection": {
+                                        "name": "@parameters('$connections')['eventhubs']['connectionId']"
+                                    }
+                                },
+                                "method": "get",
+                                "path": "/@{encodeURIComponent('insights-operational-logs')}/events/batch/head",
+                                "queries": {
+                                    "consumerGroupName": "$Default",
+                                    "contentType": "application/json",
+                                    "maximumEventsCount": 175
+                                }
+                            }
+                        }
+                    },
+                    "actions": {
+                        "Compose": {
+                            "runAfter": {
+                                "Parse_JSON": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "Compose",
+                            "inputs": "@body('Parse_JSON')"
+                        },
+                        "HTTP": {
+                            "runAfter": {
+                                "Compose": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "Http",
+                            "inputs": {
+                                "authentication": {
+                                    "password": "<splunkpass>",
+                                    "type": "Basic",
+                                    "username": "<splunkuser>"
+                                },
+                                "body": "@outputs('Compose')",
+                                "headers": {
+                                    "X-Splunk-Request-Channel": "<splunkchannel>"
+                                },
+                                "method": "POST",
+                                "uri": "<splunkuri>"
+                            }
+                        },
+                        "Parse_JSON": {
+                            "runAfter": {},
+                            "type": "ParseJson",
+                            "inputs": {
+                                "content": "@triggerBody()",
+                                "schema": {
+                                    "properties": {
+                                        "body": {
+                                            "properties": {
+                                                "ContentData": {
+                                                    "type": "string"
+                                                },
+                                                "Properties": {
+                                                    "properties": {
+                                                        "ProfileName": {
+                                                            "type": "string"
+                                                        },
+                                                        "x-opt-enqueued-time": {
+                                                            "type": "string"
+                                                        },
+                                                        "x-opt-offset": {
+                                                            "type": "string"
+                                                        },
+                                                        "x-opt-sequence-number": {
+                                                            "type": "number"
+                                                        }
+                                                    },
+                                                    "type": "object"
+                                                },
+                                                "SystemProperties": {
+                                                    "properties": {
+                                                        "EnqueuedTimeUtc": {
+                                                            "type": "string"
+                                                        },
+                                                        "Offset": {
+                                                            "type": "string"
+                                                        },
+                                                        "PartitionKey": {},
+                                                        "SequenceNumber": {
+                                                            "type": "number"
+                                                        }
+                                                    },
+                                                    "type": "object"
+                                                }
+                                            },
+                                            "type": "object"
+                                        },
+                                        "headers": {
+                                            "properties": {
+                                                "Cache-Control": {
+                                                    "type": "string"
+                                                },
+                                                "Content-Length": {
+                                                    "type": "string"
+                                                },
+                                                "Content-Type": {
+                                                    "type": "string"
+                                                },
+                                                "Date": {
+                                                    "type": "string"
+                                                },
+                                                "Expires": {
+                                                    "type": "string"
+                                                },
+                                                "Location": {
+                                                    "type": "string"
+                                                },
+                                                "Pragma": {
+                                                    "type": "string"
+                                                },
+                                                "Retry-After": {
+                                                    "type": "string"
+                                                },
+                                                "Timing-Allow-Origin": {
+                                                    "type": "string"
+                                                },
+                                                "Transfer-Encoding": {
+                                                    "type": "string"
+                                                },
+                                                "Vary": {
+                                                    "type": "string"
+                                                },
+                                                "X-AspNet-Version": {
+                                                    "type": "string"
+                                                },
+                                                "X-Powered-By": {
+                                                    "type": "string"
+                                                },
+                                                "x-ms-request-id": {
+                                                    "type": "string"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "outputs": {}
+                },
+                "parameters": {
+                    "$connections": {
+                        "value": {
+                            "eventhubs": {
+                                "connectionId": "[parameters('connections_eventhubs_externalid')]",
+                                "connectionName": "eventhubs",
+                                "id": "<apiconnectioninternalid>"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    ]
+}
